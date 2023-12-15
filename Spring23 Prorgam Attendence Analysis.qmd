@@ -1,0 +1,73 @@
+---
+title: "Spring23 Prorgam Attendence Analysis"
+author: "Xinxin Zhang"
+format: pdf
+---
+
+My name is Xinxin Zhang, a Smith College undergraduate student majoring in Statistical Data Science and minoring in Psychology. My interests lie in the field of data and society, as well as digital culture and humanities. I am an intern at the Center for Religious and Spiritual Life (CRSL) at Smith College, where I conduct research to understand the satisfaction extent of students with their program.
+
+The following steps provide a step-by-step explanation of the analysis of program attendance in CRSL, which is one part of the broader research on CRSL's program satisfaction.
+
+### Load the cvs file of attendence record from Github to the R studio.
+```{r}
+library(tidyverse)
+library(dplyr)
+library(stringr)
+spr23_Atdnce <- read_csv('https://raw.githubusercontent.com/XXinZ28/CRSL_DS/main/Program%20Attendance%202023%20-%20spring%202023.csv') |> mutate_if(is.double, as.character) |>
+  pivot_longer(cols = contains("Week"),
+               names_to = "Week",
+               values_to = "Attendance")
+```
+
+### Define the dataset
+We can see that in this dataset, each observation is the attendance of the week that the program happened in the semester of spring 2023 at Smith college. Each value under the variable of attendance describes the number of participants in that program. There are many N/A values in the dataset because of the different frequency and length of various programs. Week variable represents the starting date of a specific week. Some number are missed due to the organizer forgot to take the attendance, and some number were typed in later which might be an estimation. In the variable of *contact*, there are staff who took charge of the program in CRSL, and they recorded those numbers.
+
+In this report, the focus is going to be the analysis of change in number of participant attendance of different programs, and hopefully to generate useful conclusions of moving programs forward with greater number of participants. Though I will touch upon other different categories of programs, the main focus is going to be the programs on a regular basis, since it holds the most data recorded.
+
+
+### Categorization
+Note that I categorize them by three types and we are going to analyze them one by one. 1) the regular weekly/monthly programs; 2) one-time only programs; 3) programs that happen in a specific time period.
+
+#### 1) the regular weekly/monthly programs
+
+```{r}
+library(dplyr)
+library(stringr)
+
+spr23_Atdnce_Reg <- spr23_Atdnce %>%
+  filter(grepl("days$", Date)) %>%
+  filter(!is.na(Attendance)) %>%
+  filter(Attendance != "cancelled") |>
+  mutate(
+    Average_Attendance = str_extract(Attendance, "[:digit:]*(-|/)*[:digit:]+")
+  ) %>%
+  mutate(Average_Attendance = str_split(Average_Attendance, "-|/")) %>%
+  mutate(
+    # Convert to numeric and calculate means
+    Average_Attendance = sapply(Average_Attendance, function(x) mean(as.numeric(x), na.rm = TRUE))
+  )
+
+```
+
+```{r}
+spr23_Atdnce_Reg |>
+  mutate(Week = factor(Week, ordered = TRUE)) |>
+  ggplot(aes(x = Week, 
+             y = Average_Attendance, 
+             group = Program,
+             color = Program)) +
+  geom_line() +
+  facet_wrap(~Program, ncol = 1) +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1)) +  
+  scale_color_manual(values = c(
+    "Jummah" = "red", 
+    "Mindful Mondays" = "blue", 
+    "Soup Salad Soul" = "green", 
+    "Catholic Mass" = "purple",
+    "Weekly Meditation" = "orange")) +
+  labs(title = "Attendace of Regular Held Program in Spring 2023",
+       x = "First Day of Weeks",
+       y = "Attendance")
+```
+
