@@ -1,0 +1,111 @@
+---
+title: "CRSL Spring23 Prorgam Attendence Analysis Report"
+author: "Xinxin Zhang"
+format:
+  pdf:
+    embed-resources: true
+    df-print: paged
+    tbl-cap-location: bottom
+header-includes:
+  - \usepackage{geometry}
+  - \geometry{margin=3cm} 
+execute: 
+  echo: false
+  warning: false
+  message: false
+  
+---
+
+This report was created for purpose of program attendance record and analysis of the Center for Religious and Spiritual Life (CRSL) at Smith College. 
+
+```{r}
+#| label: libraries
+library(tidyverse)
+library(dplyr)
+library(stringr)
+library(knitr)
+```
+
+```{r}
+#| label: load_data
+#| results: hide
+spr23_Atdnce <- read_csv('https://raw.githubusercontent.com/XXinZ28/CRSL_DS/main/Program%20Attendance%202023%20-%20spring%202023.csv') |> mutate_if(is.double, as.character) |>
+  pivot_longer(cols = contains("Week"),
+               names_to = "Week",
+               values_to = "Attendance")
+```
+
+### Purpose
+We can see that in this dataset, each row represents the attendance of the week that the program happened in the semester of spring 2023 at Smith college. Each cell under the variable of attendance describes the number of participants in that program. There are many N/A values in the dataset because of the different frequency and length of various programs. Week variable represents the starting date of a specific week. In the variable of *contact*, there are staff who took charge of the program in CRSL, and they recorded those numbers.
+
+In this report, the focus is going to be the analysis of change in number of participant attendance of different programs, and hopefully to generate useful conclusions of moving programs forward with greater number of participants.The main focus is going to be the programs on a regular basis, since it holds the most data recorded. Those programs are Jummah, Mindful Mondays, Soup Salad Soul, Catholic Mass, and Weekly Meditation. Let's take a look at the change of number of participants during the whole spring semester. 
+
+### Statistics Summary
+
+```{r}
+#| label: load_data and wrangling 
+#| results: hide
+spr23_Atdnce_Reg <- spr23_Atdnce %>%
+  filter(grepl("days$", Date)) %>%
+  filter(!is.na(Attendance)) %>%
+  filter(Attendance != "cancelled") |>
+  mutate(
+    Average_Attendance = str_extract(Attendance, "[:digit:]*(-|/)*[:digit:]+")
+  ) %>%
+  mutate(Average_Attendance = str_split(Average_Attendance, "-|/")) %>%
+  mutate(
+    # Convert to numeric and calculate means
+    Average_Attendance = sapply(Average_Attendance, function(x) mean(as.numeric(x), na.rm = TRUE))
+  )
+
+```
+
+```{r fig.asp=1.5, fig.show='inline'}
+#| label: fig-summary-line-graph
+#| fig-cap: "Graph Summary of average attendance of regular held programs(Jummah, Mindful Mondays, Soup Salad Soul, Catholic Mass, and Weekly Meditation) and change over weeks in the Spring 2023 for the Center for Spiritual and Religious Life."
+
+spr23_Atdnce_Reg |>
+  mutate(Week = factor(Week, levels = c("Week of Jan 22", "Week of Jan 29", "Week of Feb 5", "Week of Feb 12", "Week of Feb 19", "Week of Feb 26", "Week of Mar 5", "Week of Mar 12", "Week of Mar 19", "Week of Mar 26", "Week of Apr 2", "Week of Apr 9", "Week of Apr 16", "Week of Apr 23", "Week of Apr 30"), ordered = TRUE)) |>
+  ggplot(aes(x = Week,
+             y = Average_Attendance,
+             group = Program,
+             color = Program)) + 
+  geom_line() +
+  facet_wrap(~Program, ncol = 1) +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1)) +  
+  scale_color_manual(values = c(
+    "Jummah" = "red", 
+    "Mindful Mondays" = "blue", 
+    "Soup Salad Soul" = "green", 
+    "Catholic Mass" = "purple",
+    "Weekly Meditation" = "orange")) +
+  labs(title = "Attendance of Regular Held Program in the Spring 2023",
+       x = "First Day of Weeks",
+       y = "Attendance")
+```
+
+```{r}
+#| label: tbl-summary-stats
+#| tbl-cap: "Summaries including the mean, standard deviation of attendance, and total number of program occurrences for regularly held programs in the Spring 2023."
+my_sum <- spr23_Atdnce_Reg |> 
+  group_by(Program) |> 
+  summarize(Average = mean(Average_Attendance),
+            Standard_Deviation = sd(Average_Attendance),
+            Count = n()
+            ) 
+
+kable(my_sum, digits = 1)
+```
+
+
+### Analysis
+From the @fig-summary-line-graph as well as @tbl-summary-stats, we can see that Catholic Mass had a very steady number of participants(around 11 people on average) over the entire semester and the highest number of occurrence times(overall 15 times being held). Soup, Salad, Soul had the largest group of attendance among the all, which is 18 people. Mindful Mondays had the biggest difference in attendance, which is on average around 6 people and reached its highest(19 people) in the week of April 2. Weekly meditation only occurred during the week of February 5 until the week of February 26(4 times), and had around 16 people attended. Jummah had on average 5 people each time; slowly decreased since the week of April and reached 0 two weeks later. 
+
+### Summary
+In summary, there were many reasons could result in the variation of number of attendance for different programs, including students' different religious beliefs, mid-term and final occurrences, and whether students were interested in the topics held in that specific week. 
+
+There are some missing values due to the unexpected recording error. One of the limitation to bear in mind that some number were typed later in the semester, which is an estimation or memorization from the organizers, rather than the exact number. This might cause a different result in this report. 
+
+Overall, it is good to keep recording the attendance number in real time, especially on a week by week basis. Based on the report, staff might reflect on questions such as: "why on that date, I had the most students came? Was there something related to the topics designed? People led the program? Or any other external factors such as the students' academic lives." From there, we could improve different programs together! 
+
